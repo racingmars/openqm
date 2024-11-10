@@ -39,7 +39,7 @@
    #include <netdb.h>
    #include <arpa/inet.h>
    #define PASSWD_FILE_NAME "/etc/shadow"
-   char * crypt(char * password, char * p);
+   #include <crypt.h>
    #define ASYNCIO
    #define TTY_50_75_134_150_200_1800
    #define TTY_57600_115200_230400

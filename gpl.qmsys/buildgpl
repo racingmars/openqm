@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This script builds the GPL OpenQM source
 #
 # The first argument can be a stage number to continue from the given stage
@@ -22,8 +24,8 @@ QMSYS=/usr/qmsys
 GPLSRC=gplsrc
 GPLOBJ=gplobj
 GPLBIN=bin
-QM_GCC_OPTIONS="-Wall -Werror -DLINUX -D_FILE_OFFSET_BITS=64 -DGPL -g"
-QMLIBS="-lm -lcrypt -ldl"
+QM_GCC_OPTIONS="-Wall -DLINUX -D_FILE_OFFSET_BITS=64 -DGPL -g"
+QMLIBS="-Wl,--no-as-needed -lm -lcrypt -ldl"
 
 STAGE=$1
 if test "$STAGE" = ""
@@ -154,7 +156,7 @@ if test $STAGE -le 9
 then
    echo ===== Stage 9 =====
    echo Compiling terminfo library
-   mkdir terminfo
+   mkdir -p terminfo
    $GPLBIN/qmtic -pterminfo terminfo.src
    echo
 fi

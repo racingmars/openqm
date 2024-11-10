@@ -19,6 +19,8 @@
  * Ladybridge Systems can be contacted via the www.openqm.com web site.
  * 
  * START-HISTORY:
+ * 09 Nov 24        Use PAM for authenticating users instead of directly
+ *                  parsing /etc/shadow file. <mwilson@mattwilson.org>
  * 05 Nov 07  2.6-5 0566 Applied casts to handle keyin() correctly.
  * 13 Sep 07  2.6-3 0562 Need to inhibit input_handler() when doing SH command.
  * 03 Sep 07  2.6-3 Disable OPOST output mode so that LF is not mapped to CRLF.
@@ -88,7 +90,9 @@
 #include <time.h>
 #include <pwd.h>
 
-   #include <sched.h>
+#include <sched.h>
+
+#include <security/pam_appl.h>
 
 Public int ChildPipe;
 Public bool in_sh;     /* 0562 Doing SH command? */
@@ -114,6 +118,9 @@ Private bool tty_modes_saved = FALSE;
 Private short int type_ahead = -1;
 
 Private void signal_handler(int signum);
+
+Private int pam_password_conv(int num_msg, const struct pam_message **msg,
+  struct pam_response **resp, void *appdata_ptr);
 
 void set_term(bool trap_break);
 void set_old_tty_modes(void);
@@ -712,52 +719,64 @@ bool login_user(username, password)
    char * username;
    char * password;
 {
- FILE * fu;
+ pam_handle_t *pam_handle;
+ int pam_result;
+ struct pam_conv pam_conversation = { pam_password_conv, password };
  struct passwd * pwd;
- char pw_rec[200+1];
- short int len;
- char * p = NULL;
- char * q;
 
- if ((fu = fopen(PASSWD_FILE_NAME, "r")) == NULL)
+ pam_result = pam_start("login", username, &pam_conversation, &pam_handle);
+ if (pam_result != PAM_SUCCESS)
   {
    tio_printf("%s\n", sysmsg(1007));
    return FALSE;
   }
 
- len = strlen(username);
-
-
- while(fgets(pw_rec, sizeof(pw_rec), fu) > 0)
+ pam_result = pam_authenticate(pam_handle, PAM_SILENT);
+ if (pam_result != PAM_SUCCESS)
   {
-   if ((pw_rec[len] == ':') && (memcmp(pw_rec, username, len) == 0))
-    {
-     p = pw_rec + len + 1;
-     break;
-    }
+   pam_end(pam_handle, pam_result);
+   return FALSE;
   }
- fclose(fu);
 
- if (p != NULL)
+ /* Authentication successful. Check that the user account is valid. */
+ pam_result = pam_acct_mgmt(pam_handle, PAM_SILENT);
+ if (pam_result != PAM_SUCCESS)
   {
-   if (memcmp(p, "$1$", 3) == 0)    /* MD5 algorithm */
-    {
-     if ((q = strchr(p, ':')) != NULL) *q = '\0';
-     if (strcmp((char *)crypt(password, p), p) == 0)
-      {
-       if (((pwd = getpwnam(username)) != NULL)
-        && (setgid(pwd->pw_gid) == 0) && (setuid(pwd->pw_uid) == 0))
-        {
-//         set_groups();
-         return TRUE;
-        }
-      }
-    }
+   pam_end(pam_handle, pam_result);
+   return FALSE;
+  }
+
+ /* At this point, the user has been authenticated and the account verified as
+    active. End our PAM session and attempt to change to the user's identity. */
+ pam_end(pam_handle, pam_result);
+
+ if (((pwd = getpwnam(username)) != NULL)
+  && (setgid(pwd->pw_gid) == 0)
+  && (setuid(pwd->pw_uid) == 0))
+  {
+   return TRUE;
   }
 
  return FALSE;
 }
 
+/* pam_password_conv is the conversation function for our pam_authenticate
+   call. For now we only support password authentication and assume all prompts
+   are asking for the user's password. */
+int pam_password_conv(int num_msg, const struct pam_message **msg,
+                      struct pam_response **resp, void *appdata_ptr) {
+  int i;
+  *resp = calloc(sizeof(struct pam_response), num_msg);
+  for (i=0; i<num_msg; i++) {
+    if (msg[i]->msg_style == PAM_PROMPT_ECHO_OFF ||
+          msg[i]->msg_style == PAM_PROMPT_ECHO_ON) {
+      // Set the corresponding reply to any prompt requests
+      resp[i]->resp_retcode = 0;
+      resp[0]->resp = strdup(appdata_ptr);
+    }
+  }
+  return PAM_SUCCESS;
+}
 
 /* ======================================================================
    Signal handler                                                         */

@@ -24,8 +24,8 @@ QMSYS=/usr/qmsys
 GPLSRC=gplsrc
 GPLOBJ=gplobj
 GPLBIN=bin
-QM_GCC_OPTIONS="-Wall -DLINUX -D_FILE_OFFSET_BITS=64 -DGPL -g"
-QMLIBS="-Wl,--no-as-needed -lm -lcrypt -ldl"
+QM_GCC_OPTIONS="-Wall -DLINUX -D_FILE_OFFSET_BITS=64 -DGPL -g -fpic"
+QMLIBS="-Wl,--no-as-needed -lm -ldl -lpam"
 
 STAGE=$1
 if test "$STAGE" = ""

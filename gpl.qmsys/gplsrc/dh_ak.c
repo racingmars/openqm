@@ -1892,7 +1892,14 @@ Private short int create_ak(
  big_dict_rec = (dict_rec_len > AK_CODE_BYTES);
  if (big_dict_rec)
   {
-   ak_header.itype_ptr = ak_header_size + DH_AK_NODE_SIZE;
+   if (header.file_version < 2)
+    {
+      ak_header.itype_ptr = DH_AK_NODE_SIZE + ak_header_size;
+    }
+   else
+    {
+      ak_header.itype_ptr = 2;
+    }
   }
  else   /* Short enough to store in AK header */
   {

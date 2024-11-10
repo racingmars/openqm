@@ -2493,10 +2493,14 @@ Private long int time_conversion(char * p)
  /* Get the time value */
 
  src_descr = e_stack - 1;
- if ((src_descr->type == STRING) && (k_blank_string(src_descr)))
-  {
-   goto exit_time_conversion_ok;
-  }
+ if (src_descr->type == STRING)
+ {
+  if ((src_descr->data.str.saddr == NULL)
+    || (!k_str_to_num(src_descr)))
+   {
+    return 1;
+   }
+ }
 
  GetInt(src_descr);
  secs = src_descr->data.value;

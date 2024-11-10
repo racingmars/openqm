@@ -19,6 +19,8 @@
  * Ladybridge Systems can be contacted via the www.openqm.com web site.
  * 
  * START-HISTORY:
+ * 09 Nov 24        Use reasonable permissions on output files.
+ *                  <mwilson@mattwilson.org>
  * 28 Sep 04  2.0-3 Replaced GetSysPaths() with GetConfigPath().
  * 16 Sep 04  2.0-1 OpenQM launch. Earlier history details suppressed.
  * END-HISTORY
@@ -111,11 +113,11 @@
 
 
    #include <unistd.h>
-   #define MakeDirectory(name) mkdir(name, 0777)
+   #define MakeDirectory(name) mkdir(name, 0775)
    #define stricmp(a,b) strcasecmp(a,b)
    #define O_BINARY 0
    #define TEXTREAD "r"
-   #define default_access 0777
+   #define default_access 0664
    #define DS '/'
 
 #ifndef DS
@@ -326,8 +328,6 @@ int main(int argc, char *argv[])
  else                   /* Compile mode */
   {
    if (!name_present) goto usage;
-
-   umask(0);
 
    /* Create terminfo directory if it does not already exist */
 

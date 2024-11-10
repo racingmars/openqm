@@ -19,6 +19,8 @@
  * Ladybridge Systems can be contacted via the www.openqm.com web site.
  * 
  * START-HISTORY:
+ * 09 Nov 24        Properly display newlines in messages on terminals.
+ *                  <mwilson@mattwilson.org>
  * 01 Jul 07  2.5-7 Extensive change for PDA merge.
  * 30 May 06  2.4-5 0492 Transfer of the message from the chunked string to the
  *                  message buffer did not walk the chunks correctly.
@@ -190,12 +192,15 @@ char * sysmsg(int msg_no)
    switch(*(p+1))
     {
      case 'n':
-        *p = '\n';
-        strcpy(p+1, p+2);
+        *p = '\r';
+        *(p+1) = '\n';
         break;
      case 't':
         *p = '\t';
-        strcpy(p+1, p+2);
+        /* Following two lines moved over from ScarletDME to more correctly
+           move the remainder of the string left one character. */
+        memmove(p + 1, p + 2, strlen(p+2));
+        p[strlen(p)-1] = '\0';
         break;
     }
    p++;

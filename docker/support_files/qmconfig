@@ -1,0 +1,5 @@
+[qm]
+QMSYS=/qmdata/qmsys
+GRPSIZE=4
+NUMUSERS=8
+SORTMEM=4096

@@ -1,0 +1,18 @@
+# Description: Service allowing QMClient connections to
+# the OpenQM database server.
+#
+service qmclient
+{
+    protocol = tcp
+    flags = REUSE
+    socket_type = stream
+    wait = no
+    groups = yes
+    user = root
+    group = qmusers
+    umask = 002
+    server = /qmdata/qmsys/bin/qm
+    server_args = -n -q
+    log_on_failure += USERID
+    disable = no
+}

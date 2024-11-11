@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# Matthew R. Wilson <mwilson@mattwilson.org>
+# https://github.com/racingmars/openqm/
+
+set -e
+
+# This script is the entry point for our Docker container. It will start
+# OpenQM, then run supervisord (which will in turn manage running xinetd and
+# any other daemons we add in the future). It will then wait for supervisord
+# to end, since when this script ends the whole Docker container terminates.
+#
+# We trap SIGTERM and SIGINT to handle receiving the stop signal from Docker,
+# or a user hitting Ctrl-C if we're in the foreground. We kill supervisord,
+# wait for it to finish, then stop OpenQM.
+
+start_container() {
+    /usr/local/bin/initssh
+    /usr/local/bin/initqmenv
+
+    # xinetd startup will spin the CPU at 100% for quite a while if there
+    # isn't an open file limit set
+    ulimit -n 1024
+
+    echo "Starting supervisord..."
+    supervisord -c /etc/supervisord.conf &
+}
+
+stop_container() {
+    echo "Stopping supervisord..."
+    kill -TERM $(cat /var/run/supervisord.pid)
+    wait
+    echo "Stopping OpenQM..."
+    /qmdata/qmsys/bin/qm -stop
+}
+
+trap stop_container TERM INT
+start_container
+wait

@@ -43,4 +43,14 @@ including a two-part series of "Getting Started in OpenQM" books.
 
 [6]: https://www.rushflat.co.nz/multi-value
 
+Running with Docker
+-------------------
+
+For an easy-to-use Docker image for this version of OpenQM, see the docker
+directory in this repository and the [Docker Hub listing][7] for this project.
+
+[7]: https://hub.docker.com/r/racingmars/openqm
+
+---
+
 —Matthew Wilson <mwilson@mattwilson.org>, Nov. 2024

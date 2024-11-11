@@ -1,0 +1,106 @@
+#!/bin/sh
+
+# Matthew R. Wilson <mwilson@mattwilson.org>
+# https://github.com/racingmars/openqm/
+
+# This script will initialize the OpenQM environment and QMSYS account. If the
+# Docker container is run with an existing volume containing data, only the
+# current build products will be copied in to the existing data folder.
+
+MODEL=/usr/qmsys
+QMSYS=/qmdata/qmsys
+
+if [ -d /qmdata/qmsys ]; then
+    # There's existing data. Treat this container invocation as a potential
+    # upgrade and replace existing build products in the previous qmsys
+    # account.
+
+    echo "Updating /qmdata environment..."
+    STATUS=existing
+
+    rm -rf $QMSYS/NEWVOC/*
+    cp $MODEL/NEWVOC/* $QMSYS/NEWVOC
+
+    rm -rf $QMSYS/MESSAGES/*
+    cp $MODEL/MESSAGES/* $QMSYS/MESSAGES
+
+    rm -rf $QMSYS/terminfo/*
+    cp -r $MODEL/terminfo/* $QMSYS/terminfo
+    cp $MODEL/terminfo.src $QMSYS
+
+    rm -rf $QMSYS/bin/*
+    cp $MODEL/bin/* $QMSYS/bin
+
+    chown -R root:qmusers \
+        $QMSYS/NEWVOC $QMSYS/MESSAGES $QMSYS/terminfo* $QMSYS/bin
+    chmod -R ug+rwX \
+        $QMSYS/NEWVOC $QMSYS/MESSAGES $QMSYS/terminfo* $QMSYS/bin
+else
+    # This is a new, empty volume
+
+    echo "Initializing /qmdata environment..."
+    STATUS=new
+
+    cp -r $MODEL $QMSYS
+    chown root:qmusers /qmdata
+    chmod 2775 /qmdata
+    chown -R root:qmusers $QMSYS
+    chmod -R ug+rwX $QMSYS
+fi
+
+echo "Starting OpenQM..."
+/qmdata/qmsys/bin/qm -start
+
+# If the "qmuser" user doesn't exist already, we'll create it. We might be
+# restarting a stopped container, in which case we can skip user creation.
+grep -E '^qmuser:' /etc/passwd >/dev/null 2>/dev/null
+if [ $? -ne 0 ]; then
+    # User does not exist
+    groupadd -g 42001 qmuser
+    useradd -u 42001 -g qmuser -G qmusers -c 'OpenQM User' \
+        -d /qmdata/qmuser -M \
+        -s /qmdata/qmsys/bin/qm \
+        qmuser
+
+    if [ -z "$QMUSER_PASSWORD" ]; then
+        QMUSER_PASSWORD=$(</dev/urandom tr -dc 'A-Za-z0-9' | head -c 16)
+        echo ""
+        echo "*** Generating password for qmuser ***"
+        echo "*** Password is: $QMUSER_PASSWORD ***"
+        echo ""
+    else
+        echo ""
+        echo "*** Using qmuser password provided by QMUSER_PASSWORD variable ***"
+        echo ""
+    fi
+
+    echo "qmuser:${QMUSER_PASSWORD}" | chpasswd
+fi
+
+# Create an empty authorized_keys file for qmuser in the right place if it's
+# not already there. Always update ownership and permissions in case they get
+# screwed up.
+mkdir -p /qmdata/ssh/keys-qmuser
+if [ ! -f /qmdata/ssh/keys-qmuser/authorized_keys ]; then
+    touch /qmdata/ssh/keys-qmuser/authorized_keys
+fi
+chown -R qmuser:qmuser /qmdata/ssh/keys-qmuser
+chmod 700 /qmdata/ssh/keys-qmuser
+chmod 600 /qmdata/ssh/keys-qmuser/authorized_keys
+
+if [ "$STATUS" = "new" ]; then
+    # In new environments, we need to update the path in the ACCOUNTS file for
+    # QMSYS to point to our non-standard location, /qmdata/qmsys.
+    cd /qmdata/qmsys
+    ./bin/qm 'UPDATE.RECORD ACCOUNTS QMSYS PATH,"/qmdata/qmsys"'
+
+    # Most new users probably don't want case inversion, so let's create a
+    # MASTER.LOGIN entry for them to disable it.
+    ./bin/qm 'UPDATE.RECORD VOC MASTER.LOGIN 1,"PA" 2,"PTERM CASE NOINVERT" CREATING'
+
+    # Create the QMUSER account, and make it qmuser's default account.
+    ./bin/qm "CREATE.ACCOUNT QMUSER /qmdata/qmuser NO.QUERY"
+    ./bin/qm "CREATE.USER qmuser QMUSER"
+    chown -R qmuser:qmusers /qmdata/qmuser
+    chmod -R ug+rwX /qmdata/qmuser
+fi

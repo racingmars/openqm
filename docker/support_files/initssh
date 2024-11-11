@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# Matthew R. Wilson <mwilson@mattwilson.org>
+# https://github.com/racingmars/openqm/
+
+# If the SSH keys don't already exist for this container, create them.
+
+if [ ! -d /qmdata/ssh ]; then
+    mkdir -p /qmdata/ssh
+    chown root:root /qmdata/ssh
+    chmod 755 /qmdata/ssh
+fi
+
+if [ ! -f /qmdata/ssh/ssh_host_ed25519_key ]; then
+    ssh-keygen -q -t ed25519 -f /qmdata/ssh/ssh_host_ed25519_key -N ""
+fi
